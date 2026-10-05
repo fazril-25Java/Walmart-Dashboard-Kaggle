@@ -1,9 +1,17 @@
+import os
+import sys
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import joblib
-from predict import engineer_features
+
+# 0. Set dynamic base directory relative to app.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.append(BASE_DIR)
+
+from predict import engineer_features, train_and_save_model
 
 # 1. Page Configuration
 st.set_page_config(
@@ -15,7 +23,11 @@ st.set_page_config(
 # 2. Load & Clean Data (Aggregated Monthly)
 @st.cache_data
 def load_data():
-    df = pd.read_csv("walmart_sales.csv")
+    csv_path = os.path.join(BASE_DIR, "walmart_sales.csv")
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"Could not find {csv_path}")
+        
+    df = pd.read_csv(csv_path)
     df.columns = df.columns.str.strip().str.lower()
     df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y")
     
@@ -42,7 +54,7 @@ def load_data():
 try:
     df = load_data()
 except FileNotFoundError:
-    st.error("`walmart_sales.csv` not found. Make sure it's in the same folder as `app.py`.")
+    st.error(f"`walmart_sales.csv` not found in `{BASE_DIR}`. Please check file placement.")
     st.stop()
 
 # 3. Sidebar Filters
@@ -158,11 +170,12 @@ with tab_analytics:
 with tab_ml:
     @st.cache_resource
     def load_trained_model():
-        try:
-            return joblib.load("walmart_model.joblib")
-        except FileNotFoundError:
-            st.error("Model file `walmart_model.joblib` not found. Please run `python predict.py` first.")
-            st.stop()
+        model_path = os.path.join(BASE_DIR, "walmart_model.joblib")
+        if not os.path.exists(model_path):
+            st.info("⚙️ Model package not found. Training model now...")
+            train_and_save_model()
+            
+        return joblib.load(model_path)
 
     model_pkg = load_trained_model()
     model = model_pkg["model"]
@@ -170,7 +183,8 @@ with tab_ml:
 
     @st.cache_data
     def get_prediction_data():
-        raw_df = pd.read_csv("walmart_sales.csv")
+        csv_path = os.path.join(BASE_DIR, "walmart_sales.csv")
+        raw_df = pd.read_csv(csv_path)
         df_engineered = engineer_features(raw_df).dropna().reset_index(drop=True)
         df_engineered["predicted_sales"] = model.predict(df_engineered[feature_cols])
         return df_engineered
