@@ -1,0 +1,14 @@
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Streamlit cache
+.streamlit/
+
+# Model files (Optional - keep if under 100MB, otherwise ignore)
+# walmart_model.joblib
